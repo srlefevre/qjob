@@ -83,5 +83,3 @@ could use it maliciously.
 
 If you set the software up, you are responsible for how it is used.  The author takes no responsibility and disclaims 
 all liability for any damages, issues, problems, headaches, catastrophes, etc that may be incurred.  
-
-
