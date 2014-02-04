@@ -1,0 +1,125 @@
+#!/bin/bash
+
+# Variables
+BEAN_HOST=localhost
+BEAN_PORT=11300
+BEAN_TUBE=testjob
+BEAN_PRIORITY=65535
+BEAN_TIMEOUT=100
+BEAN_TTR=5000
+JOB_EMAIL=null
+DRY_RUN=false
+DEBUG=false
+
+QJOB_HOME=$HOME/.qjob
+OPTS_FILE=$QJOB_HOME/$(basename $0).conf
+
+#bins
+GETOPT=getopt
+Q_PUT=q-put
+
+
+##
+# functions
+#
+usage() {
+	echo -e "Usage: $(basename $0) [-H|--host host_address] [-p|--port port] [-t|--tube tube]\n\t [-P|--priority n] [-e|--email address] [-n|--dryrun] [-d|--debug]\n\t -- command"
+	echo -e "\t -H --host hostname \t beanstalkd host"
+	echo -e "\t -p --port port \t beanstalkd port"
+	echo -e "\t -t --tube tube \t beanstalkd tube"
+	echo -e "\t -P --priority n \t job priority on queue"
+	echo -e "\t -e --email address \t email output to address"
+	echo -e "\t -h --help \t\t Well, you looking at it"
+	echo -e "\t -n --dryrun \t\t submitt but don't run jobs"
+	echo -e "\t -d --debug \t\t enable debugging"
+	echo -e "\t --  command \t\t command to run through queue"
+}
+
+q_job() {
+	if [ $# -lt 2 ]; then
+		return 1
+	fi
+	
+#	user=$1
+#	shift
+	email=$1
+	shift
+	# capture args and escape as needed
+	cmd=$(printf " %q" "$@")
+	option=null
+	if [ $DRY_RUN == true ]; then
+		option=dryrun
+	fi
+	[ $DEBUG == true ] && echo $Q_PUT $BEAN_TUBE "$email:$option $cmd"
+#	if [ $DRY_RUN == false ]; then
+		$Q_PUT $BEAN_TUBE "$email:$option $cmd"
+#	fi
+
+}
+
+
+######
+# main
+
+# source options
+[ -f "$OPTS_FILE" ] &&  . "$OPTS_FILE"
+
+args=$($GETOPT -l "host:,port:,tube:,priority:,user:,email:,help,dryrun,debug" -o "H:p:P:t:u:e:hnd" -- "$@")
+
+eval set -- "$args"
+
+while [ $# -ge 1 ]; do
+#		echo \"$1\"
+        case "$1" in
+                --)
+                    # No more options left.
+                    shift
+                    break
+                   ;;
+                -H|--host)
+                        BEAN_HOST="$2"
+                        shift
+                        ;;
+                -p|--port)
+                        BEAN_PORT="$2"
+                        shift
+                        ;;
+                -P|--priority)
+                        BEAN_PRIORITY="$2"
+                        shift
+                        ;;
+                -t|--tube)
+                        BEAN_TUBE="$2"
+                        shift
+                        ;;
+                -e|--email)
+                        JOB_EMAIL="$2"
+                        shift
+                        ;;
+                -h|--help)
+                        usage
+                        exit 0
+                        ;;
+                -n|--dryrun)
+                        DRY_RUN=true
+                        echo Dry run...
+                        ;;
+                -d|--debug)
+                        DEBUG=true
+                        ;;
+                        
+        esac
+
+        shift
+        
+done
+
+export QUEUEIT_HOST=$BEAN_HOST
+export QUEUEIT_PORT=$BEAN_PORT
+export QUEUEIT_TIMEOUT=$BEAN_TIMEOUT
+export QUEUEIT_TTR=$BEAN_TTR
+export QUEUEIT_PRIORITY=$BEAN_PRIORITY
+
+q_job "$JOB_EMAIL" "$@"
+ 
+
