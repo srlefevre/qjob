@@ -1,0 +1,256 @@
+#!/bin/bash
+# qjobd - daemon
+
+# Variables
+QJOB_HOME=$HOME/.qjob
+OPTS_FILE=$QJOB_HOME/$(basename $0).conf
+LOG_FILE=$QJOB_HOME/$(basename $0).log
+PID_PATH=$QJOB_HOME
+EXEC=
+BEAN_HOST=localhost
+BEAN_PORT=11300
+BEAN_TUBE=testjob
+DRY_RUN=false
+DEBUG=false
+DAEMON=false
+KILL=false
+SYSLOG=false
+DATE_FORMAT="+%Y-%m-%d %H:%M:%S"
+
+
+declare -a on_exit_items
+
+#bins
+DATE=date
+LOGGER=logger
+CUT=cut
+#RUNUSER=
+#SU=/bin/su
+#SHELL=/bin/bash
+MAIL=mail
+GETOPT=getopt
+Q_GET=q-get
+PIDOF=pidof
+
+###############
+# functions
+#
+
+#
+# log to std out and log file
+#
+
+usage() {
+	echo "Usage: $(basename $0) [-e|--exec program] [-H|--host host_address] [-p|--port port] [-t|--tube tube] [-s|--syslog] [-n|--dryrun] [-d|--debug] [-D|--daemon]"
+	echo -e "\t -e --exec program \t program to exec for tube"
+	echo -e "\t -H --host hostname \t beanstalkd host"
+	echo -e "\t -p --port port \t beanstalkd port"
+	echo -e "\t -t --tube tube \t beanstalkd tube"
+	echo -e "\t -l --log log_file \t log file name"
+	echo -e "\t -h --help \t\t Well, you looking at it"
+	echo -e "\t -s --syslog \t\t log to syslog"
+	echo -e "\t -n --dryrun \t\t don't run jobs"
+	echo -e "\t -d --debug \t\t enable debugging"
+	echo -e "\t -D --daemon \t\t run as daemon"
+	echo -e "\t -k --kill \t\t kill daemon running tube"
+}
+
+log() {
+        # don't output blank lines
+        if [ -n "$1" ] && [ "$1" != "-> " ]; then
+                line="$($DATE "$DATE_FORMAT") tube: $BEAN_TUBE --> "
+                if [ $DRY_RUN == true ]; then
+                	line="$line [dryrun] "
+                fi
+                line="$line $*"
+                if [ $DEBUG == true ]; then
+                        echo $line
+                fi
+                if [ -n "$LOG_FILE" ]; then
+                        echo $line >> "$LOG_FILE"
+                fi
+                line="tube: $BEAN_TUBE $*"
+                if [ $SYSLOG == true ]; then
+                        #fix lines beginning w/ '->' as logger reads as cl option
+                        if [ "->" == "${line:0:2}" ]; then
+                                line=${line:2}
+                        fi
+                        $LOGGER -t $(basename $0) "$line"
+                fi
+        fi
+}
+
+###
+
+run_job() {
+	if [ $# -lt 2 ]; then
+		return 1
+	fi
+	
+	job=$1
+	email=$(echo $job|$CUT -d : -f 1)
+	option=$(echo $job|$CUT -d : -f 2)
+	shift
+	
+	if [ $option = 'dryrun' ]; then
+		DRY_RUN=true
+	fi
+	
+	log "\"$EXEC $@\""
+	if [ $DRY_RUN = false ]; then
+		tmp_file="/tmp/"$(basename $0).$RANDOM
+		echo "\$ $EXEC $@" > $tmp_file
+		nice $EXEC "$@" >> $tmp_file 2>&1 
+		log "rc: $?"
+		if [ $email != 'null' ]; then 
+			cat $tmp_file | $MAIL -s "qjob $BEAN_TUBE" $email
+		fi
+		[ $DEBUG = false ] && rm -f $tmp_file
+	fi
+	DRY_RUN=false
+
+}
+
+kill_daemon() {
+	if [ -f $PID_FILE ]; then
+		pid=$(cat $PID_FILE)
+		pkill -P $pid
+		kill -- $pid
+		log "daemon killed (pid=$pid, tube=$BEAN_TUBE) "
+		exit 0
+	else
+		log "pid file $PID_FILE not found! "
+		echo "pid file $PID_FILE not found! "
+		exit 1
+	fi
+
+}
+function on_exit()
+{
+	sig="$1"; shift
+	[ $DEBUG == true ] && echo "on_exit: signal = $sig"
+    for i in "${on_exit_items[@]}"
+    do
+        [ $DEBUG == true ] && echo "on_exit: $i"
+        eval $i
+    done
+    # propigate the sig
+    if [ $sig != EXIT ]; then
+    	trap - $sig EXIT
+    	kill -s $sig $$
+    fi
+}
+
+function on_exit_run()
+{
+    local n=${#on_exit_items[*]}
+    on_exit_items[$n]="$*"
+    if [[ $n -eq 0 ]]; then
+        [ $DEBUG == true ] && echo "Setting trap"
+        for sig in EXIT HUP INT QUIT PIPE TERM; do
+        	[ $DEBUG == true ] && echo "trap \"on_exit $sig\" $sig"
+        	trap "on_exit $sig" $sig
+        done
+    fi
+}
+
+
+######
+# main
+
+[ -f "$OPTS_FILE" ] && . "$OPTS_FILE"
+
+args="$@"
+
+while [ $# -ge 1 ]; do
+        case "$1" in
+                --)
+                    # No more options left.
+                    shift
+                    break
+                   ;;
+                -e|--exec)
+                        EXEC="$2"
+                        shift
+                        ;;
+                -H|--host)
+                        BEAN_HOST="$2"
+                        shift
+                        ;;
+                -p|--port)
+                        BEAN_PORT="$2"
+                        shift
+                        ;;
+                -t|--tube)
+                        BEAN_TUBE="$2"
+                        shift
+                        ;;
+                -l|--log)
+                        LOG_FILE="$2"
+                        shift
+                        ;;
+                -h|--help)
+                        usage
+                        exit 0
+                        ;;
+                -s|--syslog)
+                        SYSLOG=true
+                        ;;
+                -n|--dryrun)
+                        DRY_RUN=true
+                        ;;
+                -d|--debug)
+                        DEBUG=true
+                        ;;
+                -D|--daemon)
+                        DAEMON=true
+                        ;;
+                -k|--kill)
+                        KILL=true
+                        ;;
+        esac
+
+        shift
+done
+
+export QUEUEIT_HOST=$BEAN_HOST
+export QUEUEIT_PORT=$BEAN_PORT
+
+mkdir -p "$QJOB_HOME" > /dev/null 2>&1
+PID_FILE=$PID_PATH/qjob-$BEAN_TUBE.pid
+
+[ $KILL = true ] && kill_daemon
+
+if [ -z $EXEC ]; then
+	echo "error: a program must be specified with -e|--exec option"
+	exit 1
+fi
+
+if [ -f $PID_FILE ]; then
+	echo "error: qjob daemon running for tube $BEAN_TUBE (pid=$(cat $PID_FILE)). Check $PID_FILE"
+	exit 1
+else
+	if [ $DAEMON = false ]; then
+		# launch/fork as daemon
+		eval "$0 --daemon $args &"
+		exit 0
+	fi
+	echo $$ > $PID_FILE
+fi
+
+log "Starting daemon (pid=$$) --> server: $BEAN_HOST port: $BEAN_PORT tube: $BEAN_TUBE "
+echo "$(basename $0) started (pid=$$)"
+
+set -e 
+on_exit_run log "Shutting down..."
+on_exit_run rm -f $PID_FILE 
+
+while true 
+do
+	args=$( $Q_GET $BEAN_TUBE )
+	eval set -- "$args"
+	[ $DEBUG == true ] && log "job: $args"
+	run_job "$@"
+
+done
+
