@@ -5,11 +5,13 @@ A distributed job/process queuing client and daemon using beanstalkd
 
 A simple example:
 
-$ qjobd --exec HandBrakeCLI --tube encode --host localhost<br>
-$ qjob --tube encode -- --preset "High Profile" -m -4 -O -t 1  -1 "~/Video/TV Show Season 2.iso" -o "~/Video/TV Show Season 2 Title 1.mp4"<br>
-$ qjob --tube encode -- --preset "High Profile" -m -4 -O -t 2 -i "~/Video/TV Show Season 2.iso" -o "~/Video/TV Show Season 2 Title 2.mp4"<br>
-$ qjob --tube encode -- --preset "High Profile" -m -4 -O -t 3 -i "~/Video/TV Show Season 2.iso" -o "~/Video/TV Show Season 2 Title 3.mp4"<br>
-$ qjob --tube encode -- --preset "High Profile" -m -4 -O -t 4 -i "~/Video/TV Show Season 2.iso" -o "~/Video/TV Show Season 2 Title 4.mp4"<br>
+```
+$ qjobd --exec HandBrakeCLI --tube encode --host localhost
+$ qjob --tube encode -- --preset "High Profile" -m -4 -O -t 1  -1 "~/Video/TV Show Season 2.iso" -o "~/Video/TV Show Season 2 Title 1.mp4"
+$ qjob --tube encode -- --preset "High Profile" -m -4 -O -t 2 -i "~/Video/TV Show Season 2.iso" -o "~/Video/TV Show Season 2 Title 2.mp4"
+$ qjob --tube encode -- --preset "High Profile" -m -4 -O -t 3 -i "~/Video/TV Show Season 2.iso" -o "~/Video/TV Show Season 2 Title 3.mp4"
+$ qjob --tube encode -- --preset "High Profile" -m -4 -O -t 4 -i "~/Video/TV Show Season 2.iso" -o "~/Video/TV Show Season 2 Title 4.mp4"
+```
 
 In this example, we start the qjobd daemon that listens to the beanstalkd server on tube 'encode'.  We then start feeding it work with 
 the qjob commands to convert four separate episodes from a DVD ISO.  
@@ -32,26 +34,40 @@ If your not familiar with beanstalkd, please see https://github.com/kr/beanstalk
 try installing using apt-get, yum, pkg, or whatever your preferred *nix flavor uses for installing a package.
 
 Install the beanstalkd client queueit.  I've forked queueit to fix a minor issue.
+
+```
 $ git clone git://github.com/srlefevre/queueit.git queueit
 $ cd queueit
 $ sudo python setup.py install
-
+```
 
 Install qjob
 ------------
 Get the code
+
+```
 $ git clone git://github.com/srlefevre/qjob.git qjob
 $ cd qjob
+```
 
 Create the configuration and logging directory
+
+```
 $ mkdir ~/.qjob
+```
 
 Copy the example configuration files
+
+```
 $ cp qjob.conf qjobd.conf ~/.qjob/
+```
 
 Copy scripts/programs into the path
+
+```
 $ chmod a+x qjob qjobd
 $ sudo cp qjob qjobd /usr/local/bin
+```
 You can put them anywhere that's in your path such as ~/bin/
 
 Configuration
@@ -65,10 +81,14 @@ All defaults can be overridden by command line arguments of their respective com
 Use qjobd
 ===
 Start qjobd daemon
+```
 $ qjobd --exec <exec name> --tube <tube name>
+```
 
 End qjobd daemon
+```
 $ qjobd --tube <tube name> --kill
+```
 
 Platforms
 =========
