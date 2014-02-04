@@ -5,11 +5,11 @@ A distributed job/process queuing client and daemon using beanstalkd
 
 A simple example:
 
-$ qjobd --exec HandBrakeCLI --tube encode --host localhost
-$ qjob --tube encode -- --preset "High Profile" -m -4 -O -t 1 -i "~/Video/TV Show Season 2.iso" -o "~/Video/TV Show Season 2 Title 1.mp4"
-$ qjob --tube encode -- --preset "High Profile" -m -4 -O -t 2 -i "~/Video/TV Show Season 2.iso" -o "~/Video/TV Show Season 2 Title 2.mp4"
-$ qjob --tube encode -- --preset "High Profile" -m -4 -O -t 3 -i "~/Video/TV Show Season 2.iso" -o "~/Video/TV Show Season 2 Title 3.mp4"
-$ qjob --tube encode -- --preset "High Profile" -m -4 -O -t 4 -i "~/Video/TV Show Season 2.iso" -o "~/Video/TV Show Season 2 Title 4.mp4"
+$ qjobd --exec HandBrakeCLI --tube encode --host localhost<br>
+$ qjob --tube encode -- --preset "High Profile" -m -4 -O -t 1  -1 "~/Video/TV Show Season 2.iso" -o "~/Video/TV Show Season 2 Title 1.mp4"<br>
+$ qjob --tube encode -- --preset "High Profile" -m -4 -O -t 2 -i "~/Video/TV Show Season 2.iso" -o "~/Video/TV Show Season 2 Title 2.mp4"<br>
+$ qjob --tube encode -- --preset "High Profile" -m -4 -O -t 3 -i "~/Video/TV Show Season 2.iso" -o "~/Video/TV Show Season 2 Title 3.mp4"<br>
+$ qjob --tube encode -- --preset "High Profile" -m -4 -O -t 4 -i "~/Video/TV Show Season 2.iso" -o "~/Video/TV Show Season 2 Title 4.mp4"<br>
 
 In this example, we start the qjobd daemon that listens to the beanstalkd server on tube 'encode'.  We then start feeding it work with 
 the qjob commands to convert four separate episodes from a DVD ISO.  
@@ -20,7 +20,7 @@ qjobd daemon appends the contents of the tube entry as command line arguments an
 This simple example isn't very impressive as each video is converted serially.  This could be accomplished 
 using a bash script.
 The value of this comes in when your data/files are sitting on a file server (likely NFS) and 
-multiple computers run the qjobd daemon.  With this type of setup, the videos 
+multiple computers are running the qjobd daemon.  With this type of setup, the videos 
 can be converted concurrently with each computer pulling from the tube and executing work.
 
 
